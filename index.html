@@ -51,33 +51,40 @@
       
       title.textContent = document.title;
       
+      // 山データ
+      const data = await CSV.fetch("./mountain.csv");
+      const mountains = await CSV.toJSON(data);
+      const latitude = mountains.reduce((pre, cur) => pre + parseFloat(cur.緯度), 0) / mountains.length;
+      const longitude = mountains.reduce((pre, cur) => pre + parseFloat(cur.経度), 0) / mountains.length;
+      
       const map = new OLMap({
         tileUrl: "https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png",
-        zoom: 18
+        zoom: 12,
+        latitude,
+        longitude,
       });
       
       map.addTileLayer("pic", "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg");
       const oldLayer = map.getLayer("pic");
       oldLayer.setOpacity(0.75);
-      
+
       // 登山路データ
-      map.map.addLayer(new ol.layer.Vector({
-        source: new ol.source.Vector({
-          url: "./gsi20221215022523334.geojson",
-          format: new ol.format.GeoJSON(),
-          projection: "EPSG:3857"
-        }),
-        style : new ol.style.Style({
-          stroke: new ol.style.Stroke({
-            color: 'rgba(255, 0, 0, 0.25)',
-            width: 8
+      for (const mountain of mountains) {
+        map.map.addLayer(new ol.layer.Vector({
+          source: new ol.source.Vector({
+            url: mountain.name + ".geojson",
+            format: new ol.format.GeoJSON(),
+            projection: "EPSG:3857"
           }),
-        })
-      }));
+          style : new ol.style.Style({
+            stroke: new ol.style.Stroke({
+              color: 'rgba(255, 0, 0, 0.25)',
+              width: 8
+            }),
+          })
+        }));
+      }
       
-      // 山データ
-      const data = await CSV.fetch("./mountain.csv");
-      const mountains = await CSV.toJSON(data);
       
       map.addVectorLayer("marker");
       const layer = map.getLayer("marker");
@@ -96,7 +103,7 @@
         addMarker(layer, {
           longitude: Number(mountain["経度"]),
           latitude: Number(mountain["緯度"]),
-          content: `<p>${mountain["名前"]}</p><p>${mountain["読み方"]}</p><p><a href="./3d/${mountain["緯度"]}_${mountain["経度"]}/index.html" target="_blank">3Dマップ</a></p>`,
+          content: `<p>${mountain["名前"]}</p><p>${mountain["読み方"]}</p><p><a href="./3d/${mountain.name}/" target="_blank">3Dマップ</a></p>`,
           icon: "./image/icon.png"
         });
         
