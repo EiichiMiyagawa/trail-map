@@ -1,0 +1,155 @@
+<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+  <title>登山路マップ</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v7.1.0/ol.css">
+  <script src="https://cdn.jsdelivr.net/npm/ol@v7.1.0/dist/ol.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/geolib@3.3.3/lib/index.min.js"></script>
+</head><body>
+  <h1 id=title></h1>
+  <span>
+    山
+    <select id="select-mountain">
+      <option value=""></option>
+    </select>
+  </span>
+  <div id="olmap" style="width:auto;height:600px;"></div>
+  <div id="popup" class="ol-popup">
+    <div id="popup-content"></div>
+  </div>
+  <hr />
+  <p>DATA: <a href="https://ja.wikipedia.org/wiki/%E3%83%A1%E3%82%A4%E3%83%B3%E3%83%9A%E3%83%BC%E3%82%B8" target="_blank">ウィキペディア</a></p>
+  <p>src: <a href="https://github.com/EiichiMiyagawa/trail-map" target="_blank">https://github.com/EiichiMiyagawa/trail-map</a></p>
+  <p><a target="_blank" href="https://icons8.com/icon/OBmVbH2qOGwK/%E3%83%9E%E3%83%BC%E3%82%AB%E3%83%BC">マーカー</a> icon by <a target="_blank" href="https://icons8.com">Icons8</a></p>
+  
+  <script type="module">
+    import { OLMap } from "https://eiichimiyagawa.github.io/OLMap/v1/OLMap.js";
+    import { CSV } from "https://js.sabae.cc/CSV.js";
+    
+    // iOS14以前に関する対応（top-level await未対応のため）
+    addEventListener("load", async () => {
+      const addMarker = (layer, params = {}) => {
+        const feature = new ol.Feature({
+          geometry: new ol.geom.Point(ol.proj.transform([params["longitude"], params["latitude"]], "EPSG:4326","EPSG:3857")),
+          content: params["content"] || ""
+        });
+        feature.setStyle(new ol.style.Style({
+          image: new ol.style.Icon({
+            anchor: [0.5, 0.5],
+            anchorXUnits: "fraction",
+            anchorYUnits: "fraction",
+            src: params["icon"] || "./v1/icon.png"
+          })
+        }));
+        layer.getSource().addFeature(feature);
+      };
+      
+      const onChangeShowOldMapCheckBox = (event) => {
+        const opacity = event.target.checked ? 1.0 : 0.0;
+        const layer = map.getLayer("old");
+        layer.setOpacity(opacity);
+      };
+      
+      title.textContent = document.title;
+      
+      const map = new OLMap({
+        tileUrl: "https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png",
+        zoom: 18
+      });
+      
+      map.addTileLayer("pic", "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg");
+      const oldLayer = map.getLayer("pic");
+      oldLayer.setOpacity(0.75);
+      
+      // 登山路データ
+      map.map.addLayer(new ol.layer.Vector({
+        source: new ol.source.Vector({
+          url: "./gsi20221215022523334.geojson",
+          format: new ol.format.GeoJSON(),
+          projection: "EPSG:3857"
+        }),
+        style : new ol.style.Style({
+          stroke: new ol.style.Stroke({
+            color: 'rgba(255, 0, 0, 0.25)',
+            width: 8
+          }),
+        })
+      }));
+      
+      // 山データ
+      const data = await CSV.fetch("./mountain.csv");
+      const mountains = await CSV.toJSON(data);
+      
+      map.addVectorLayer("marker");
+      const layer = map.getLayer("marker");
+      
+      const selectMountainElement = document.getElementById("select-mountain");
+      selectMountainElement.onchange = ((event) => {
+        const value = event.target.value;
+        if (value == "") {
+          return;
+        }
+        
+        map.setCenter(value.split(","));
+      });
+      
+      mountains.forEach((mountain) => {
+        addMarker(layer, {
+          longitude: Number(mountain["経度"]),
+          latitude: Number(mountain["緯度"]),
+          content: `<p>${mountain["名前"]}</p><p>${mountain["読み方"]}</p><p><a href="./3d/${mountain["緯度"]}_${mountain["経度"]}/index.html" target="_blank">3Dマップ</a></p>`,
+          icon: "./image/icon.png"
+        });
+        
+        const option = document.createElement("option");
+        option.textContent = mountain["名前"];
+        option.value = map.transform(mountain["経度"], mountain["緯度"]);
+        selectMountainElement.append(option);
+      });
+    });
+  </script>
+  
+  <style>
+    body {
+      text-align: center;
+      font-family: sans-serif;
+    }
+    
+    textarea {
+      width: 70vw;
+      height: 8em;
+    }
+    
+    .ol-popup {
+      position: absolute;
+      background-color: white;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+      padding: 15px;
+      border-radius: 10px;
+      border: 1px solid #cccccc;
+      bottom: 12px;
+      left: -50px;
+      min-width: 280px;
+    }
+    .ol-popup:after, .ol-popup:before {
+      top: 100%;
+      border: solid transparent;
+      content: " ";
+      height: 0;
+      width: 0;
+      position: absolute;
+      pointer-events: none;
+    }
+    .ol-popup:after {
+      border-top-color: white;
+      border-width: 10px;
+      left: 48px;
+      margin-left: -10px;
+    }
+    .ol-popup:before {
+      border-top-color: #cccccc;
+      border-width: 11px;
+      left: 48px;
+      margin-left: -11px;
+    }
+  </style>
+  
+  
