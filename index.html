@@ -6,6 +6,7 @@
 </head><body>
   <h1 id=title></h1>
   <p>地図上のアイコンをクリックすると山の情報が表示され、3Dマップを見ることができます。</p>
+  <p>地図上の登山路をクリックすると登山路の距離・高さの概要が表示されます。</p>
   <span>
     山
     <select id="select-mountain">
@@ -67,24 +68,32 @@
       map.addTileLayer("pic", "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg");
       const oldLayer = map.getLayer("pic");
       oldLayer.setOpacity(0.75);
-
-      // 登山路データ
-      for (const mountain of mountains) {
-        map.map.addLayer(new ol.layer.Vector({
-          source: new ol.source.Vector({
-            url: mountain.name + ".geojson",
-            format: new ol.format.GeoJSON(),
-            projection: "EPSG:3857"
-          }),
-          style : new ol.style.Style({
-            stroke: new ol.style.Stroke({
-              color: 'rgba(255, 0, 0, 0.25)',
-              width: 8
-            }),
-          })
-        }));
-      }
       
+      // 登山路データ
+      let trailFeatures = [];
+      for (const mountain of mountains) {
+        const json = await (await fetch(`./${mountain.name}.geojson`)).json();
+        const features = new ol.format.GeoJSON({
+          featureProjection: "EPSG:3857"
+        }).readFeatures(json);
+        features.forEach((f) => {
+          f.set("content", `<p>登山路データ</p><img src="./image/${mountain.name}/${f.get("id")}.png"></img>`);
+        });
+        trailFeatures = trailFeatures.concat(features);
+      }
+
+      map.map.addLayer(new ol.layer.Vector({
+        source: new ol.source.Vector({
+          features: trailFeatures,
+          projection: "EPSG:3857"
+        }),
+        style : new ol.style.Style({
+          stroke: new ol.style.Stroke({
+            color: 'rgba(255, 0, 0, 0.25)',
+            width: 8
+          }),
+        })
+      }));
       
       map.addVectorLayer("marker");
       const layer = map.getLayer("marker");
